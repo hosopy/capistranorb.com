@@ -1,0 +1,50 @@
+- content_for :head do
+  %title Capistrano
+
+%p
+  %i Capistrano
+  is a Ruby tool for deploying software to one or more remote servers.
+%p It is designed for deploying web applications directly from source control repositories.
+
+%h3 Getting Started
+
+%p
+  Capistrano, is at it's heart a simple tool, masking some complicated relationships between threads
+  and SSH sessions, to help you perform smooth, repeatable deploys, every time.
+
+%ul
+  %li= link_to "FAQ", 'faq.html'
+  %li= link_to "Setting Up"
+  %li= link_to "Getting Started"
+  %li= link_to "Multiple Stages"
+  %li= link_to "Troubleshooting"
+
+%h3 Advanced Topics
+
+%ul
+  %li= link_to "Deploying non-Rails Projects"
+  %li= link_to "Dotfiles, Bundler & The Environment"
+  %li= link_to "Self-hosted Source Control Repositories"
+
+%h3 Get Help
+
+%p
+  There's a lot of knowledge stored in questions at Stack Overflow about Capistrano, asking there after
+  reading the archives will help a lot; if that doesn't work out you can use the mailing list linked
+  below:
+
+  If you believe you've found a serious issue with Capistrano please report it on the issue tracker.
+
+  We [make features work hard to be imlpemented][1], and we prefer if you [don't push your pull requests][2];
+  but we welcome all community contributions.
+
+  If you found a mistake in this documentation, or would like to make an addion; you can [fork any improve it
+  via Github][3].
+
+  [1]: http://gettingreal.37signals.com/ch05_Start_With_No.php
+  [2]: http://www.igvita.com/2011/12/19/dont-push-your-pull-requests/
+  [3]: htts://github.com/capistrano/capistranorb.com/
+
+%ul
+  %li= link_to "StackOverflow Posts Tagged <i>Capistrano</i>.", "http://stackoverflow.com/tags/capistrano"
+  %li= link_to "Google Groups Mailing List."

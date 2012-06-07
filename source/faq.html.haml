@@ -1,0 +1,201 @@
+- content_for :head do
+  %title Capistrano Frequently Asked Questions
+
+%h2 How does Capistrano work?
+
+:markdown
+  Capistrano uses the Ruby library *Net::SSH* to drive connections to one or more hosts,
+  upon these hosts it uses simple shell commands to perform the checking-out of source code
+  creating files, managing configurations, and restarting services. It assumes that the servers
+  have been prepared to a certain standard; normally using an automated tool such as Chef or Puppet.
+
+%h2 How does Capistrano execute commands?
+
+:markdown
+  Capistrano creates *non-login* shell sessions using *Net::SSH*. To eliminate differences between
+  shell implementations, commands are wrapped in a `sh` wrapper. Here's is an example
+
+%pre
+  %code sh -c 'whoami'
+
+:markdown
+
+  The commands are wrapped by `sh` to protect against differences between different shells, if you wish
+  to reset this, and not wrap them (that is, run all commands natively in your host's default shell
+  which is most likely *Bash*) you can add the following to your Capfile:
+
+      default_run_options[:shell] = false
+
+%h2 Something works when I use SSH, but doesn't work in Capistrano!
+
+:markdown
+  A common misconception is that all shells are created equal, and that SSH'ing into to a host
+  is the same as using Capistrano to connect.
+
+  There are two important differences, one is between a TTY and a non-TTY, the second between a login
+  shell and a non-login shell.
+
+  In UNIX when using a terminal, that is a *[TTY]* (**T**ele**TY**pe Terminal), it is a device capable of
+  buffered input and output for interacting with a user.
+
+  However when using output redirection in UNIX, and input redirection the process can detect whether
+  the output is going to a terminal (a TTY) or has been redirected to a file (non-TTY).
+
+  Similarly for input, although less common; the process can infer whether the *STDIN* is a TTY (and thus
+  it may prompt for input in response to a question) or whether that input is being streamed from a file.
+  In the later case, there is no way to interact with a user, and many applications (apt, git, sudo)
+  correctly exit when they cannot continue. Badly written progrms may try to prompt when no TTY is present,
+  often leading to them hanging waiting for a response.
+
+  Many pieces of software use this information to determine, for example whether to output color escape
+  sequences (which it should not do when being redirected to a file), or in the case of *sudo*, to detect
+  whether there is a user waiting on the terminal who may provide a password, or if this is an automated
+  script.
+
+  In the latter case, *sudo* raises an error, as there is no logical way to continue.
+
+  Here's a table in summary:
+
+  [TTY]: http://en.wikipedia.org/wiki/Computer_terminal#Historical
+  [1]: http://www.ruby-doc.org/core-1.9.3/IO.html#method-i-tty-3F
+
+%table.table
+  %tbody
+    %tr
+      %th TTY
+      %td
+        Can prompt for input.
+        %br
+        Well designed programs should offer enhanced output, colours and/or bells.
+      %th Non-TTY
+      %td
+        &bull; Can not prompt for input.
+        %br
+        &bull; Well designed programs should print <i>file friendly</i> output without unnecessary
+        decorations
+    %tr
+      %th Login Shell
+      %td
+        &bull; Will typically run <i>~/.bashrc</i>, <i>~/.bashprofile</i> or similar shell <i>dotfiles</i>
+        %br
+        &bull; Persistent commands, changing the directory with <i>cd</i> will change the directory
+        for the remainer of the session.
+      %th Non-Login Shell
+      %td
+        &bull; Shell environment files are <strong>not</strong> processed.
+        %br
+        &bull; Changing the directory has no effect beyond the current command, upon the next command
+        the working directory will be the system default.
+
+:markdown
+  Capistrano uses non-login non-tty shells, there is an option to use a pseudo-TTY which may
+  change the behaviour of certain commands. The variable can be added to your *Capfile*.
+
+      default_run_options[:pty] = true
+
+  You probably only need to change this variable if you expect some prompt (Capistrano includes some tools
+  for responding to prompts), and it is not being triggered.
+
+  For an accurate copy of how Capistrano runs commands, try this:
+
+      ssh user@my_application.com "sh -c 'env'"
+
+  Compare this output with the result of running `env` when logging in in the usual way, and you will notice
+  quite a difference.
+
+%h2 What does the directory structure look like?
+
+:markdown
+
+  Capistrano expects (and can create for you) the following directory structure, assuming the variable
+  `:deploy_to` is set to `/opt/sites`
+
+      /opt/sites/
+      /opt/sites/my_app/
+      /opt/sites/my_app/current -> ./releases/20120105180000
+      /opt/sites/my_app/releases
+      /opt/sites/my_app/releases/20120105180000
+      /opt/sites/my_app/releases/20120101164593
+      /opt/sites/my_app/shared
+      /opt/sites/my_app/shared/tmp
+      /opt/sites/my_app/shared/public
+
+  The `current` directory, is in fact a symlink to the latest successful release, each release is
+  named (by default) as the current date and time stamp.
+
+  Within each release directory further symlinks exist to each shared directory, typically these
+  are temporary, log, pid and user-uploaded files, they can also be assets if using Rails 3.1+.
+
+%h2 Can I share directories between deployments?
+
+:markdown
+  Built in to the default recipe that ships with Capistrano is a variable `:shared_children`, this
+  variable is used automatically inside Capistrano during a standard deploy to create symlinks between
+  directories in the deployment structure, by default this contains some standard Rails directories, you
+  can [examine the implementation here][1].
+
+  This variable can be added to, replaced or emptied, it's not uncommon with Rails share additional
+  directories between releases using the following line:
+
+      # config/deploy/production.rb
+      set :shared_children, fetch(:shared_children) + ['public/system']
+
+  You can learn more about [`set`] and [`fetch`] in the API documentation.
+
+  [1]: https://github.com/capistrano/capistrano/blob/master/lib/capistrano/recipes/deploy.rb#L53
+
+%h2 Can I use `sudo`?
+
+:markdown
+  Capistrano has helpers for using sudo. Using sudo for deployments can be something of an antipattern,
+  with properly configured servers you shouldn't need it, but it's there if you absolutely do.
+
+%h2
+  Should I write
+  %i
+    %u some utility
+  on top of Capistrano?
+
+:markdown
+  The short answer is *probably not*, Capistrano excels at performing remote commands for *deployment*.
+
+  While some people have often built tools for backing up databases, or synchronizing production/staging
+  data using Capistrano, it's normally wiser to build such tasks in Rake.
+
+  When built using Rake, they can be better written as classes, shared between projects and maybe even
+  released as Gems, when baked into Capistrano you are tying your deployment tool to your day to day
+  working tools.
+
+%h2 My process hangs when started via Capistrano, but works otherwise.
+
+:markdown
+  Please see the notes about how Capistrano uses SSH above. If this is still a problem it's possible
+  that your configuration of the *pty* variable, combined with badly behaved daemon processes is to
+  blame.
+
+  Please refer the author of the misbehaving daemon to [this article about the correct way to reliably
+  daemonize a process.][1]
+
+  The short version of this is that when programs as asked to daemonize they may remain connected (if
+  badly written) to the *stdin* and *stdout* that Capistrano created when connecting to the server;
+  these programs hang when those streams go away (when Capistrano disconnects). The solution is to
+  wrap the command in `nohup` or background the process using shell tricks; but really the author of
+  the program should be responsible for repairing it.
+
+  It may also be more viable workaround to use something such as [Upstart], [Bluepill], [Monit],
+  [System V Init],
+  or any other countless tools to start your processes, rather than starting daemons during deployment.
+
+  By using one of these tools you can easily configure self-healing daemon processes which restart after
+  uenxpected failure without human intervention.
+
+  Tools such as [Monit] can also be configured to restart daemons when configuration files change.
+  Capistrano creates a `RELEASE` file in the `:depoy_to` directory on every successful deployment which
+  can be used to trigger graceful restarts of application services on every deploy, without resorting to
+  using *sudo*.
+
+  [1]: http://www.itp.uzh.ch/~dpotter/howto/daemonize
+  [Bluepill]:      https://github.com/arya/bluepill
+  [Monit]:         http://mmonit.com/monit/
+  [Upstart]:       http://upstart.ubuntu.com/
+  [System V Init]: http://en.wikipedia.org/wiki/Init
